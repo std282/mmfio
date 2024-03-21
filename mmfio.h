@@ -29,6 +29,10 @@
 
 #include <stddef.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+
 typedef struct MMFILE_impl MMFILE;                         // Opaque file definition
 
 MMFILE* mmfopen(const char* name, const char* mode);       // Opens a specified file, in memory-mapped fashion
@@ -37,10 +41,18 @@ size_t mmfsize(MMFILE* mmf);                               // Returns a number o
 void mmfclose(MMFILE* mmf);                                // Closes a memory-mapped file
 const char* mmferror(void);                                // Returns text description of last error happened with memory-mapped I/O
 
+#ifdef __cplusplus
+}
+#endif // __cplusplus
+
 #endif // INCLUDE_MMFIO_H
 
 #if defined(MMFIO_IMPLEMENTATION) && !defined(MMFIO_IMPLEMENTATION_INCLUDED)
 #define MMFIO_IMPLEMENTATION_INCLUDED
+
+#ifdef __cplusplus
+#error Implementation must be compiled with C compiler.
+#endif // __cplusplus
 
 #include <stdarg.h>
 #include <stdbool.h>
