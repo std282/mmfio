@@ -57,7 +57,6 @@ const char* mmferror(void);                                // Returns text descr
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 static char mmferrorbuffer[512] = "";
 static void mmfseterror(const char* fmt, ...)
@@ -142,7 +141,6 @@ static const char* GetWindowsErrorString(int errcode)
 MMFILE* mmfopen(const char* name, const char* mode)
 {
   MMFILE* ret = NULL;
-  MMFILE f;
   struct { DWORD file, mode, page, map; } flags = {0};
   bool openable = false;
 
@@ -157,7 +155,8 @@ MMFILE* mmfopen(const char* name, const char* mode)
   }
 
   if (openable) {
-    MMFILE* fp = calloc(1, sizeof(*fp));
+    MMFILE* fp = LocalAlloc(LPTR, sizeof(*fp));
+    MMFILE f = {0};
     if (fp != NULL) {
       f.file = CreateFileA(name, flags.file, 0, NULL, flags.mode, FILE_ATTRIBUTE_NORMAL, NULL);
       if (f.file != INVALID_HANDLE_VALUE) {
@@ -172,15 +171,15 @@ MMFILE* mmfopen(const char* name, const char* mode)
               if (f.mem != NULL) {
                 *fp = f;
                 ret = fp;
-              } else mmfseterror("could not map file: OS error: MapViewOfFile failed: %s", LASTERROR);
+              } else mmfseterror("could not map file (MapViewOfFile): %s", LASTERROR);
               if (ret == NULL) CloseHandle(f.map);
-            } else mmfseterror("could not map file: OS error: CreateFileMappingA failed: %s", LASTERROR);
+            } else mmfseterror("could not map file (CreateFileMappingA): %s", LASTERROR);
           } else mmfseterror("could not map file: file is empty");
-        } else mmfseterror("could not get file size: OS error: GetFileSizeEx failed: %s", LASTERROR);
+        } else mmfseterror("could not get file size: %s", LASTERROR);
         if (ret == NULL) CloseHandle(f.file);
-      } else mmfseterror("could not open file \"%s\": OS error: CreateFileA failed: %s", name, LASTERROR);
-      if (ret == NULL) free(fp);
-    } else mmfseterror("could not allocate space for MMFILE: calloc returned NULL");
+      } else mmfseterror("could not open the file: %s", LASTERROR);
+      if (ret == NULL) LocalFree(fp);
+    } else mmfseterror("could not allocate space for MMFILE: %s", LASTERROR);
   } else mmfseterror("no valid file opening mode flags were provided");
 
   return ret;
@@ -200,7 +199,7 @@ void mmfclose(MMFILE* mmf)
 {
   CloseHandle(mmf->map);
   CloseHandle(mmf->file);
-  free(mmf);
+  LocalFree(mmf);
 }
 
 #else
@@ -214,6 +213,7 @@ void mmfclose(MMFILE* mmf)
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <stdlib.h>
 
 struct MMFILE_impl {
   int fd;
@@ -253,13 +253,13 @@ MMFILE* mmfopen(const char* name, const char* mode)
             if (f.mem != MAP_FAILED) {
               *fp = f;
               ret = fp;
-            } else mmfseterror("could not map file: mmap returned MAP_FAILED: %s", LASTERROR);
+            } else mmfseterror("could not map file: %s", LASTERROR);
           } else mmfseterror("could not map file: file is empty");
-        } else mmfseterror("could not get file size: fstat returned -1: %s", LASTERROR);
+        } else mmfseterror("could not get file size: %s", LASTERROR);
         if (ret == NULL) close(f.fd);
-      } else mmfseterror("could not open file \"%s\": open returned -1: %s", name, LASTERROR);
+      } else mmfseterror("could not open the file: %s", LASTERROR);
       if (ret == NULL) free(fp);
-    } else mmfseterror("could not allocate space for MMFILE: calloc returned NULL");
+    } else mmfseterror("could not allocate space for MMFILE: %s", LASTERROR);
   } else mmfseterror("no valid file opening mode flags were provided");
 
   return ret;
